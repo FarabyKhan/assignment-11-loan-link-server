@@ -27,6 +27,7 @@ async function run() {
 
     const db = client.db("loan_link_db")
     const usersCollection = db.collection('users');
+    const loansCollection = db.collection('loans')
 
     // user api 
   app.post('/users', async(req,res)=>{
@@ -47,6 +48,19 @@ async function run() {
       
   })
 
+  // loan api
+
+  app.post('/loans', async(req,res)=>{
+    const loan = req.body
+    const result = await loansCollection.insertOne(loan)
+    res.send(result)
+  })
+
+  app.get('/loans', async(req,res)=>{
+    const cursor =loansCollection.find()
+    const result = await cursor.toArray();
+    res.send(result) 
+  })
 
 
     // Send a ping to confirm a successful connection
