@@ -62,6 +62,13 @@ async function run() {
     res.send(result) 
   })
 
+  app.get('/featured-loans',async(req,res)=>{
+    const cursor = loansCollection.find().sort({ createdAt:-1 }).limit(6)
+    const result = await cursor.toArray();
+    res.send(result)
+
+  })
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
