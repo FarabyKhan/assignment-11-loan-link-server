@@ -27,7 +27,8 @@ async function run() {
 
     const db = client.db("loan_link_db")
     const usersCollection = db.collection('users');
-    const loansCollection = db.collection('loans')
+    const loansCollection = db.collection('loans');
+    const loanApplicationCollection = db.collection('loanApply');
 
     // user api 
   app.post('/users', async(req,res)=>{
@@ -44,11 +45,12 @@ async function run() {
     res.send(result)
   })
 
-  app.get('/users', async(req,res)=>{
-      
+  app.get('/users/:email', async(req,res)=>{
+      const email = req.params.email
+      const user = await usersCollection.findOne({email})
+      res.send(user)
   })
 
-  // loan api
 
   app.post('/loans', async(req,res)=>{
     const loan = req.body
@@ -63,7 +65,7 @@ async function run() {
     res.send(result) 
   })
 
-  app.get('/loans/:id', async(req,res)=>{
+  app.get('/loans/:id', async(req, res)=>{
     const id = req.params.id;
     const query = { _id: new ObjectId(id) }
     const result = await loansCollection.findOne(query)
@@ -75,6 +77,12 @@ async function run() {
     const result = await cursor.toArray();
     res.send(result)
 
+  })
+
+  app.post('/loan-application',async(req,res)=>{
+    const apply = req.body
+    const result = await loanApplicationCollection.insertOne(apply)
+    res.send(result)
   })
 
 
