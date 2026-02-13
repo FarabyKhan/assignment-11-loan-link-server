@@ -9,6 +9,12 @@ const port = process.env.port||3000
 // middleware
 app.use(express.json())
 app.use(cors());
+
+ const verifyFBToken = (req, res, next) =>{
+  console.log('headers in the middleware', req.headers.authorization);
+  next()
+ }
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@am.7mxwxuq.mongodb.net/?appName=AM`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -65,7 +71,7 @@ async function run() {
     res.send(result) 
   })
 
-  app.get('/loans/:id', async(req, res)=>{
+  app.get('/loans/:id', verifyFBToken, async(req, res)=>{
     const id = req.params.id;
     const query = { _id: new ObjectId(id) }
     const result = await loansCollection.findOne(query)
