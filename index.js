@@ -1,13 +1,21 @@
 const express = require('express')
 const cors = require('cors')
 const app = express()
+
 require('dotenv').config()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const dns = require("dns");
+//Change DNS
+dns.setServers([
+  '1.1.1.1',
+  '8.8.8.8'
+])
 
 const port = process.env.PORT ||3000
 
 const admin = require("firebase-admin");
 const serviceAccount = require("./loan-link-auth-firebase-adminsdk.json");
+
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -34,8 +42,9 @@ app.use(cors());
   }
   
  }
-
+  
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@am.7mxwxuq.mongodb.net/?appName=AM`;
+// const uri = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@ac-5skoi0e-shard-00-00.7mxwxuq.mongodb.net:27017,ac-5skoi0e-shard-00-01.7mxwxuq.mongodb.net:27017,ac-5skoi0e-shard-00-02.7mxwxuq.mongodb.net:27017/?ssl=true&replicaSet=atlas-lwnvca-shard-0&authSource=admin&appName=AM`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -95,7 +104,7 @@ async function run() {
   app.get('/users/:email', verifyFBToken, async(req,res)=>{
       const email = req.params.email
       if (req.user.email !== email) {
-        return  
+        return  res.status(403).send({ message: 'forbidden access' })
       }
       const user = await usersCollection.findOne({email})
       res.send(user)
@@ -106,7 +115,7 @@ async function run() {
       email:req.user.email
     })
     if(!reqUser || reqUser.role !== 'admin'){
-      return res.status(403).send({message:'forbidden access'})
+      return res.status(403).send({message:'forbidden access'});
     }
     const id = req.params.id
     const{status, suspendReason} = req.body
@@ -114,6 +123,8 @@ async function run() {
     const targetUser = await usersCollection.findOne({
       _id: new ObjectId(id)
     })
+
+    
 
     if(targetUser.email === req.user.email){
       return res.status(400).send({
@@ -167,7 +178,7 @@ async function run() {
     res.send(result)
   })
 
-  app.patch('/loans/show/:id', verifyAdmin,verifyFBToken, async(req,res)=>{
+  app.patch('/loans/show/:id',verifyFBToken, verifyAdmin, async(req,res)=>{
     const id = req.params.id;
     const {showOnHome} = req.body;
 
@@ -177,6 +188,50 @@ async function run() {
     );
     res.send(result)
   });
+
+  app.patch('/loans/:id', verifyFBToken,verifyAdmin ,async(req,res)=>{
+    try {
+      const id = req.params.id;
+    const { title,
+          description,
+          shortDescription,
+          category,
+          interestRate,
+          maxLoanLimit,
+          emiPlans,
+          image} = req.body;
+
+    const updateDoc ={
+      $set:{
+          title,
+          description,
+          shortDescription,
+          category,
+          interestRate,
+          maxLoanLimit,
+          emiPlans,
+          image,
+          updatedAt: new Date()
+      }
+    }
+    const result = await loansCollection.updateOne(
+      {_id: new ObjectId(id)},
+        updateDoc
+    );
+    res.send(result)
+    } catch (error) {
+      res.status(500).send({ message: 'Fail to update loan' });
+    }
+  });
+
+  app.delete('/loans/:id',verifyFBToken, verifyAdmin,async(req,res)=>{
+    const id = req.params.id;
+
+    const result = await loansCollection.deleteOne(
+      {_id: new ObjectId(id)}
+    );
+    res.send(result)
+  })
 
   app.get('/featured-loans',async(req,res)=>{
     const cursor = loansCollection.find({ showOnHome:true }).sort({ createdAt:-1 }).limit(6)
