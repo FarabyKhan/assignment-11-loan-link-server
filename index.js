@@ -280,14 +280,58 @@ async function run() {
       res.send({ applied: !!application });
     });
 
-    app.get('/loan-application', verifyFBToken, async (req, res) => {
-      const cursor = loanApplicationCollection.find()
-      const result = await cursor.toArray();
-      res.send(result)
+    app.get('/loanApplication', verifyFBToken, verifyAdmin, async (req, res) => {
+      try {
+        const application = await loanApplicationCollection.aggregate([
+          {
+            $addFields: {
+              loanId: { $toObjectId: "$loanId" },
+
+            }
+          },
+          {
+            $lookup: {
+              from: "loans",
+              localField: "loanId",
+              foreignField: "_id",
+              as: "loanInfo"
+            }
+          },
+          {
+            $unwind: "$loanInfo"
+          },
+          {
+            $project: {
+              loanId: 1,
+              title: "$loanInfo.title",
+              email: 1,
+              interestRate: 1,
+              firstName: 1,
+              lastName: 1,
+              contactNumber: 1,
+              address: 1,
+              npNumber: 1,
+              incomeSource: 1,
+              monthlyIncome: 1,
+              loanReason: 1,
+              exNotes: 1,
+              status: 1,
+              applicationFeeStatus: 1,
+              image: "$loanInfo.image",
+              amount: "$loanAmount",
+              category: "$loanInfo.category",
+              approvedAt: 1
+            }
+          }
+        ]).toArray()
+        res.send(application)
+      } catch (error) {
+        res.status(500).send({ message: "Fail to fetch loan application " })
+      }
     })
 
     app.get('/loanApply', verifyFBToken, async (req, res) => {
-      const cursor = loanApplicationCollection.find()
+      const cursor = loanApplicationCollection.find({ status: 'pending' })
       const result = await cursor.toArray();
       res.send(result)
     })
@@ -316,20 +360,22 @@ async function run() {
         const existing = await loanApplicationCollection.findOne({
           _id: new ObjectId(id)
         })
-        if(!existing){
-         return res.status(404).send({ message: 'Loan not found' })
+        if (!existing) {
+          return res.status(404).send({ message: 'Loan not found' })
         }
         if (existing.status === status) {
-          return res.status(404).send({ message: 'status is already updated' })
+          return res.send({ message: 'Already in this status' })
         }
 
         const updateDoc = {
           $set: {
             status: status,
-            ...(status === 'approved' && { approvedAt: new Date() })
+            ...(status === 'approved' && { approvedAt: new Date() }),
+            ...(status !== 'approved' && {
+              $unset: { approvedAt: "" }
+            })
           }
         };
-
         const result = await loanApplicationCollection.updateOne({
           _id: new ObjectId(id)
         },
